@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Download, Plus, Trash2, Save } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { useReactToPrint } from 'react-to-print';
+import { Download, Save, Plus, Trash2 } from 'lucide-react';
+import { ATSResumeTemplate } from './ATSResumeTemplate';
 
 interface PersonalInfo {
   name: string;
@@ -33,6 +35,8 @@ interface Skill {
 }
 
 export function ResumeBuilder() {
+  const templateRef = useRef<HTMLDivElement>(null);
+
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
     name: '',
     email: '',
@@ -44,6 +48,18 @@ export function ResumeBuilder() {
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [education, setEducation] = useState<Education[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [atsScore, setAtsScore] = useState<number | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      // Simulate ATS scoring
+      const simulatedScore = Math.floor(Math.random() * 100) + 1;
+      setAtsScore(simulatedScore);
+    }
+  };
 
   const addExperience = () => {
     const newExp: Experience = {
@@ -118,8 +134,12 @@ export function ResumeBuilder() {
     alert('Resume saved successfully!');
   };
 
+  const handlePrint = useReactToPrint({
+    content: () => templateRef.current,
+    documentTitle: 'ATS_Friendly_Resume',
+  });
+
   const downloadResume = () => {
-    // In a real application, this would generate a PDF
     alert('Download functionality would be implemented here');
   };
 
@@ -142,6 +162,13 @@ export function ResumeBuilder() {
             >
               <Download className="h-4 w-4" />
               <span>Download</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              <span>Download ATS Resume</span>
             </button>
           </div>
         </div>
@@ -180,6 +207,8 @@ export function ResumeBuilder() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+
+
             <textarea
               placeholder="Professional Summary"
               value={personalInfo.summary}
@@ -201,6 +230,8 @@ export function ResumeBuilder() {
                 <span>Add Experience</span>
               </button>
             </div>
+
+
             {experiences.map((exp) => (
               <div key={exp.id} className="border border-gray-200 rounded-md p-4 mb-4">
                 <div className="flex justify-end mb-2">
@@ -211,6 +242,8 @@ export function ResumeBuilder() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
+
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <input
                     type="text"
@@ -241,6 +274,8 @@ export function ResumeBuilder() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
+
+
                 <textarea
                   placeholder="Job Description"
                   value={exp.description}
@@ -254,16 +289,14 @@ export function ResumeBuilder() {
 
           {/* Education */}
           <section>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Education</h3>
-              <button
-                onClick={addEducation}
-                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Education</span>
-              </button>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Education</h3>
+            <button
+              onClick={addEducation}
+              className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors mb-4"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Education</span>
+            </button>
             {education.map((edu) => (
               <div key={edu.id} className="border border-gray-200 rounded-md p-4 mb-4">
                 <div className="flex justify-end mb-2">
@@ -274,6 +307,7 @@ export function ResumeBuilder() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <input
                     type="text"
@@ -320,6 +354,7 @@ export function ResumeBuilder() {
                 <span>Add Skill</span>
               </button>
             </div>
+
             <div className="grid md:grid-cols-2 gap-4">
               {skills.map((skill) => (
                 <div key={skill.id} className="flex items-center space-x-2">
@@ -350,8 +385,53 @@ export function ResumeBuilder() {
               ))}
             </div>
           </section>
+
+          {/* Hidden ATS Resume Template for printing */}
+          <div className="hidden">
+            <ATSResumeTemplate
+              ref={templateRef}
+              personalInfo={personalInfo}
+              experiences={experiences}
+              education={education}
+              skills={skills}
+            />
+          </div>
+        </div>
+
+        {/* Resume Upload and ATS Score */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">ATS Score Checker</h2>
+          <div className="mb-4">
+            <label htmlFor="resumeUpload" className="block text-sm font-medium text-gray-700 mb-2">
+              Upload your Resume (PDF, DOCX)
+            </label>
+            <input
+              type="file"
+              id="resumeUpload"
+              accept=".pdf,.doc,.docx"
+              onChange={handleFileUpload}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100"
+            />
+          </div>
+          {selectedFile && (
+            <p className="text-sm text-gray-600 mb-2">Selected file: {selectedFile.name}</p>
+          )}
+          {atsScore !== null && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-md">
+              <h3 className="text-lg font-semibold text-blue-800">ATS Score: {atsScore}%</h3>
+              <p className="text-sm text-blue-700">
+                This is a simulated ATS score. For a detailed analysis, consider professional review.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+export default ResumeBuilder;

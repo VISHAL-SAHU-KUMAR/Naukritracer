@@ -1,37 +1,66 @@
-import React from 'react';
-import { Briefcase, Mail, Phone, MapPin, Facebook, Twitter, Linkedin, Instagram, Heart } from 'lucide-react';
+import { useState } from 'react';
+import { Briefcase, Mail, Phone, MapPin, Facebook, Twitter, Linkedin, Instagram, Heart, CheckCircle } from 'lucide-react';
 
 interface FooterProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: 'home' | 'resume' | 'jobs' | 'profile' | 'job-listings' | 'about' | 'contact' | 'privacy' | 'terms' | 'blog' | 'careers' | 'cookie-policy' | 'gdpr' | 'help-center' | 'career-tips' | 'salary-guide' | 'industry-reports' | 'career-counselling' | 'roadmap') => void;
 }
 
 export function Footer({ onNavigate }: FooterProps) {
   const currentYear = new Date().getFullYear();
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+  const [error, setError] = useState('');
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleSubscribe = () => {
+    if (!email) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setError('');
+    setSubscribed(true);
+    setEmail('');
+    
+    // Here you would typically make an API call to save the email subscription
+    setTimeout(() => {
+      setSubscribed(false);
+    }, 5000); // Hide the thank you message after 5 seconds
+  };
 
   const footerLinks = {
     company: [
       { label: 'About Us', action: () => onNavigate('about') },
       { label: 'Contact', action: () => onNavigate('contact') },
-      { label: 'Careers', action: () => onNavigate('job-listings') },
-      { label: 'Blog', action: () => window.open('#', '_blank') }
+      { label: 'Careers', action: () => onNavigate('careers') },
+      { label: 'Blog', action: () => onNavigate('blog') }
     ],
     services: [
       { label: 'Resume Builder', action: () => onNavigate('resume') },
       { label: 'Job Search', action: () => onNavigate('job-listings') },
-      { label: 'Career Coaching', action: () => window.open('#', '_blank') },
-      { label: 'Interview Prep', action: () => window.open('#', '_blank') }
+      { label: 'Career Counselling', action: () => onNavigate('career-counselling') },
+      { label: 'Roadmap', action: () => onNavigate('roadmap') }
     ],
     resources: [
-      { label: 'Help Center', action: () => window.open('#', '_blank') },
-      { label: 'Career Tips', action: () => window.open('#', '_blank') },
-      { label: 'Salary Guide', action: () => window.open('#', '_blank') },
-      { label: 'Industry Reports', action: () => window.open('#', '_blank') }
+      { label: 'Help Center', action: () => onNavigate('help-center') },
+      { label: 'Career Tips', action: () => onNavigate('career-tips') },
+      { label: 'Salary Guide', action: () => onNavigate('salary-guide') },
+      { label: 'Industry Reports', action: () => onNavigate('industry-reports') },
     ],
     legal: [
       { label: 'Privacy Policy', action: () => onNavigate('privacy') },
       { label: 'Terms of Service', action: () => onNavigate('terms') },
-      { label: 'Cookie Policy', action: () => window.open('#', '_blank') },
-      { label: 'GDPR', action: () => window.open('#', '_blank') }
+      { label: 'Cookie Policy', action: () => onNavigate('cookie-policy') },
+      { label: 'GDPR', action: () => onNavigate('gdpr') }
     ]
   };
 
@@ -70,11 +99,11 @@ export function Footer({ onNavigate }: FooterProps) {
               </div>
               <div className="flex items-center space-x-3 text-gray-300">
                 <Phone className="h-4 w-4 text-blue-400" />
-                <span>+1 (555) 123-4567</span>
+                <span>+91 9354934740</span>
               </div>
               <div className="flex items-center space-x-3 text-gray-300">
                 <MapPin className="h-4 w-4 text-blue-400" />
-                <span>123 Career Street, Success City, SC 12345</span>
+                <span>New Delhi, India</span>
               </div>
             </div>
           </div>
@@ -86,7 +115,10 @@ export function Footer({ onNavigate }: FooterProps) {
               {footerLinks.company.map((link, index) => (
                 <li key={index}>
                   <button
-                    onClick={link.action}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      link.action();
+                    }}
                     className="text-gray-300 hover:text-blue-400 transition-colors duration-200 text-left"
                   >
                     {link.label}
@@ -155,15 +187,33 @@ export function Footer({ onNavigate }: FooterProps) {
             <p className="text-gray-300 mb-4">
               Get the latest career tips, job opportunities, and platform updates delivered to your inbox.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400"
-              />
-              <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105">
-                Subscribe
-              </button>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={`flex-1 px-4 py-3 bg-gray-800 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400 ${
+                    error ? 'border-red-500' : 'border-gray-700'
+                  }`}
+                />
+                <button
+                  onClick={handleSubscribe}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105"
+                >
+                  Subscribe
+                </button>
+              </div>
+              {error && (
+                <span className="text-sm text-red-500">{error}</span>
+              )}
+              {subscribed && (
+                <div className="flex items-center justify-center sm:justify-start space-x-2 text-green-400">
+                  <CheckCircle className="h-5 w-5" />
+                  <span>Thank you for subscribing!</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -20,7 +20,9 @@ interface JobTrackerProps {
 }
 
 export function JobTracker({ user }: JobTrackerProps) {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  // Get applications from localStorage
+  const applications = JSON.parse(localStorage.getItem('applications') || '[]');
+  const [jobs, setJobs] = useState<Job[]>([...applications]);
   const [showForm, setShowForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);

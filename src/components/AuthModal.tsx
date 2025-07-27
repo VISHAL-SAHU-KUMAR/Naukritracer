@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import { X, Mail, Lock, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { LoadingSpinner } from './LoadingSpinner';
 
+import { UserProfile } from '../App';
+
 interface AuthModalProps {
   onClose: () => void;
-  onLogin: (user: { name: string; email: string }) => void;
+  onRegister: (userData: { name: string; email: string; password?: string }) => Promise<void>;
+  onLogin: (credentials: { email: string; password: string }) => Promise<void>;
 }
 
 type AuthView = 'login' | 'signup' | 'forgot-password' | 'reset-success';
 
-export function AuthModal({ onClose, onLogin }: AuthModalProps) {
+export function AuthModal({ onClose, onRegister, onLogin }: AuthModalProps) {
   const [currentView, setCurrentView] = useState<AuthView>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -68,19 +71,26 @@ export function AuthModal({ onClose, onLogin }: AuthModalProps) {
       return;
     }
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    if (currentView === 'forgot-password') {
-      setCurrentView('reset-success');
-    } else {
-      onLogin({
-        name: formData.name || 'User',
-        email: formData.email,
-      });
+    try {
+      if (currentView === 'signup') {
+        await onRegister({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        });
+      } else if (currentView === 'login') {
+        await onLogin({
+          email: formData.email,
+          password: formData.password,
+        });
+      } else if (currentView === 'forgot-password') {
+        setCurrentView('reset-success');
+      }
+    } catch (error: any) {
+      setErrors({ general: error.message || 'An unexpected error occurred.' });
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const resetForm = () => {

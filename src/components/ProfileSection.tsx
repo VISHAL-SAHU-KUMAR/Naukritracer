@@ -1,10 +1,43 @@
 import React, { useState } from 'react';
-import { User, Camera, Save, Edit2, MapPin, Phone, Mail, Calendar, BookOpen, Briefcase, Award, Plus, X } from 'lucide-react';
+import { 
+  User, Camera, Save, Edit2, MapPin, Phone, Mail, Calendar, BookOpen, Briefcase, 
+  Award, Plus, X, Github, Linkedin, MessageCircle, Instagram, MessageSquare, 
+  ArrowRight, Badge, Users, Send, Lock, Unlock, Image, Paperclip, Video, Loader
+} from 'lucide-react';
+import { updateUserProfile, checkUsernameAvailability } from '../services/userService';
+
+interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'document' | 'video';
+  timestamp: Date;
+  status: 'sent' | 'delivered' | 'read';
+}
+
+interface Connection {
+  userId: string;
+  username: string;
+  photo?: string;
+  status: 'following' | 'pending' | 'follower';
+  timestamp: Date;
+}
 
 interface UserProfile {
+  id: string;
   name: string;
   email: string;
+  careerHubId: string; // System generated ID
+  accountPrivacy: 'public' | 'private';
+  followers: Connection[];
+  following: Connection[];
+  messages: Message[];
+  username: string; // Custom unique username
+  usernameStatus: 'checking' | 'available' | 'taken' | 'invalid' | ''; // Status of username availability
   photo?: string;
+  bannerImage?: string;
   gender?: string;
   dateOfBirth?: string;
   biography?: string;
@@ -12,7 +45,14 @@ interface UserProfile {
   experience?: string;
   education?: string;
   location?: string;
+  state?: string;
+  country?: string;
   phone?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
+  telegramId?: string;
+  instagramId?: string;
+  discordId?: string;
 }
 
 interface ProfileSectionProps {
@@ -22,11 +62,22 @@ interface ProfileSectionProps {
 
 export function ProfileSection({ user, onProfileUpdate }: ProfileSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const usernameTimeoutRef = React.useRef<NodeJS.Timeout>();
   const [formData, setFormData] = useState<UserProfile>(
     user || {
+      id: `USER${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
       name: '',
       email: '',
+      careerHubId: `CH${Math.random().toString(36).substr(2, 9).toUpperCase()}`, // System generated ID
+      username: '',
+      usernameStatus: '',
       photo: '',
+      bannerImage: '',
+      followers: [],
+      following: [],
+      messages: [],
+      accountPrivacy: 'public' as const,
       gender: '',
       dateOfBirth: '',
       biography: '',
@@ -34,14 +85,48 @@ export function ProfileSection({ user, onProfileUpdate }: ProfileSectionProps) {
       experience: '',
       education: '',
       location: '',
-      phone: ''
+      state: '',
+      country: '',
+      phone: '',
+      githubUrl: '',
+      linkedinUrl: '',
+      telegramId: '',
+      instagramId: '',
+      discordId: ''
     }
   );
   const [newSkill, setNewSkill] = useState('');
 
-  const handleSave = () => {
-    onProfileUpdate(formData);
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (!user?.id) {
+      console.error('No user ID found');
+      return;
+    }
+
+    // Validate username before saving
+    if (formData.usernameStatus === 'taken' || formData.usernameStatus === 'invalid') {
+      alert('Please fix the username issues before saving');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const updatedProfile = await updateUserProfile(user.id, formData);
+      console.log('Profile updated successfully:', updatedProfile);
+      
+      // Update the local state with the response from backend
+      onProfileUpdate(updatedProfile);
+      setFormData(updatedProfile);
+      setIsEditing(false);
+      
+      // Show success message
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      alert(`Failed to update profile: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddSkill = () => {
@@ -103,7 +188,41 @@ export function ProfileSection({ user, onProfileUpdate }: ProfileSectionProps) {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Profile Header */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-        <div className="h-32 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+        <div className="relative h-32">
+          {formData.bannerImage ? (
+            <img
+              src={formData.bannerImage}
+              alt="Profile Banner"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="h-32 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+          )}
+          {isEditing && (
+            <label className="absolute top-2 right-2 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer transition-colors flex items-center space-x-2">
+              <Camera className="h-4 w-4" />
+              <span className="text-sm">Change Banner</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                      setFormData({
+                        ...formData,
+                        bannerImage: e.target?.result as string
+                      });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
         <div className="px-8 pb-8">
           <div className="flex flex-col sm:flex-row items-center sm:items-end -mt-16 mb-6">
             <div className="relative">
@@ -148,25 +267,96 @@ export function ProfileSection({ user, onProfileUpdate }: ProfileSectionProps) {
                 </h1>
               )}
               
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
-                {formData.email && (
-                  <div className="flex items-center space-x-1">
-                    <Mail className="h-4 w-4" />
-                    <span>{formData.email}</span>
-                  </div>
-                )}
-                {formData.location && (
-                  <div className="flex items-center space-x-1">
-                    <MapPin className="h-4 w-4" />
-                    <span>{formData.location}</span>
-                  </div>
-                )}
-                {formData.phone && (
-                  <div className="flex items-center space-x-1">
-                    <Phone className="h-4 w-4" />
-                    <span>{formData.phone}</span>
-                  </div>
-                )}
+              <div className="flex flex-wrap gap-4 text-sm">
+                {/* System Generated ID */}
+                <div className="flex items-center bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full">
+                  <Badge className="h-4 w-4 mr-2" />
+                  <span className="font-medium">ID: {formData.careerHubId}</span>
+                </div>
+
+                {/* Custom Username */}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <div className="relative">
+                      <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+                      <input
+                        id="username"
+                        type="text"
+                        value={formData.username}
+                        onChange={async (e) => {
+                          const newUsername = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                          setFormData({ 
+                            ...formData, 
+                            username: newUsername,
+                            usernameStatus: 'checking'
+                          });
+                          
+                          // Clear previous timeout
+                          if (usernameTimeoutRef.current) {
+                            clearTimeout(usernameTimeoutRef.current);
+                          }
+                          
+                          // Debounce API call
+                          usernameTimeoutRef.current = setTimeout(async () => {
+                            if (newUsername.length < 3) {
+                              setFormData(prev => ({ ...prev, usernameStatus: 'invalid' }));
+                              return;
+                            }
+                            
+                            try {
+                              const response = await checkUsernameAvailability(newUsername, user?.id);
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                usernameStatus: response.status 
+                              }));
+                            } catch (error) {
+                              console.error('Username check failed:', error);
+                              setFormData(prev => ({ ...prev, usernameStatus: 'taken' }));
+                            }
+                          }, 500);
+                        }}
+                        placeholder="Choose a unique username"
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${formData.usernameStatus === 'available' ? 'border-green-500' : formData.usernameStatus === 'taken' ? 'border-red-500' : formData.usernameStatus === 'invalid' ? 'border-yellow-500' : 'border-gray-300 dark:border-gray-600'}`}
+                      />
+                      {formData.username && (
+                        <div className={`mt-1 text-sm ${formData.usernameStatus === 'available' ? 'text-green-500' : formData.usernameStatus === 'taken' ? 'text-red-500' : formData.usernameStatus === 'invalid' ? 'text-yellow-500' : 'text-gray-500'}`}>
+                          {formData.usernameStatus === 'checking' && 'Checking availability...'}
+                          {formData.usernameStatus === 'available' && 'Username is available!'}
+                          {formData.usernameStatus === 'taken' && 'Username is already taken'}
+                          {formData.usernameStatus === 'invalid' && 'Username must be at least 3 characters'}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    formData.username && (
+                      <div className="flex items-center bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3 py-1 rounded-full">
+                        <User className="h-4 w-4 mr-2" />
+                        <span className="font-medium">@{formData.username}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-4 text-gray-600 dark:text-gray-400">
+                  {formData.email && (
+                    <div className="flex items-center space-x-1">
+                      <Mail className="h-4 w-4" />
+                      <span>{formData.email}</span>
+                    </div>
+                  )}
+                  {formData.location && (
+                    <div className="flex items-center space-x-1">
+                      <MapPin className="h-4 w-4" />
+                      <span>{formData.location}</span>
+                    </div>
+                  )}
+                  {formData.phone && (
+                    <div className="flex items-center space-x-1">
+                      <Phone className="h-4 w-4" />
+                      <span>{formData.phone}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -175,10 +365,24 @@ export function ProfileSection({ user, onProfileUpdate }: ProfileSectionProps) {
                 <div className="flex space-x-2">
                   <button
                     onClick={handleSave}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                    disabled={isSaving || formData.usernameStatus === 'taken' || formData.usernameStatus === 'invalid'}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
+                      isSaving || formData.usernameStatus === 'taken' || formData.usernameStatus === 'invalid'
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-green-600 hover:bg-green-700'
+                    } text-white`}
                   >
-                    <Save className="h-4 w-4" />
-                    <span>Save</span>
+                    {isSaving ? (
+                      <>
+                        <Loader className="h-4 w-4 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        <span>Save</span>
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => setIsEditing(false)}
@@ -198,11 +402,305 @@ export function ProfileSection({ user, onProfileUpdate }: ProfileSectionProps) {
               )}
             </div>
           </div>
+          {/* Account Privacy Toggle */}
+          {isEditing && (
+            <div className="mt-4 flex items-center space-x-2">
+              <button
+                onClick={() => setFormData(prev => ({
+                  ...prev,
+                  accountPrivacy: prev.accountPrivacy === 'public' ? 'private' : 'public'
+                }))}
+                className={`flex items-center px-3 py-2 rounded-lg ${
+                  formData.accountPrivacy === 'public' 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                }`}
+              >
+                {formData.accountPrivacy === 'public' ? (
+                  <>
+                    <Unlock className="h-4 w-4 mr-2" />
+                    <span>Public Account</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    <span>Private Account</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Profile Details */}
       <div className="grid md:grid-cols-2 gap-6">
+        {/* Connections Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <Users className="h-5 w-5 mr-2 text-blue-600" />
+            Connections
+          </h3>
+          
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                {formData.followers.length}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Followers</div>
+            </div>
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                {formData.following.length}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Following</div>
+            </div>
+          </div>
+
+          {/* Recent Connections */}
+          <div className="space-y-3">
+            {[...formData.followers, ...formData.following]
+              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+              .slice(0, 3)
+              .map((connection, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    {connection.photo ? (
+                      <img src={connection.photo} alt="" className="w-10 h-10 rounded-full" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                        <User className="h-6 w-6 text-blue-600" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">@{connection.username}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">{connection.status}</div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {/* Handle message click */}}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
+                  >
+                    <Send className="h-4 w-4 text-blue-600" />
+                  </button>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {/* Messages Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <MessageSquare className="h-5 w-5 mr-2 text-blue-600" />
+            Messages
+          </h3>
+
+          <div className="space-y-4">
+            {formData.messages
+              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+              .slice(0, 3)
+              .map((message, index) => (
+                <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {message.senderId === formData.careerHubId ? 'You' : `@${message.senderId}`}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {message.timestamp.toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400">
+                    {message.mediaUrl && (
+                      <div className="mb-2">
+                        {message.mediaType === 'image' && (
+                          <div className="relative h-20 w-20 rounded-lg overflow-hidden">
+                            <img src={message.mediaUrl} alt="" className="h-full w-full object-cover" />
+                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                              <Image className="h-6 w-6 text-white" />
+                            </div>
+                          </div>
+                        )}
+                        {message.mediaType === 'document' && (
+                          <div className="flex items-center space-x-2 text-blue-600">
+                            <Paperclip className="h-4 w-4" />
+                            <span>Document attached</span>
+                          </div>
+                        )}
+                        {message.mediaType === 'video' && (
+                          <div className="flex items-center space-x-2 text-blue-600">
+                            <Video className="h-4 w-4" />
+                            <span>Video attached</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {/* Social Media Links */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <MessageCircle className="h-5 w-5 mr-2 text-blue-600" />
+            Social Links (Optional)
+          </h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center">
+                <Github className="h-4 w-4 mr-2" />
+                GitHub URL
+              </label>
+              {isEditing ? (
+                <input
+                  type="url"
+                  placeholder="https://github.com/yourusername"
+                  value={formData.githubUrl || ''}
+                  onChange={(e) => setFormData({ ...formData, githubUrl: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {formData.githubUrl || 'Not specified'}
+                  </p>
+                  {formData.githubUrl && (
+                    <button 
+                      onClick={() => window.open(formData.githubUrl, '_blank')}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    >
+                      <ArrowRight className="h-4 w-4 text-blue-500" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center">
+                <Linkedin className="h-4 w-4 mr-2" />
+                LinkedIn URL
+              </label>
+              {isEditing ? (
+                <input
+                  type="url"
+                  placeholder="https://linkedin.com/in/yourusername"
+                  value={formData.linkedinUrl || ''}
+                  onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {formData.linkedinUrl || 'Not specified'}
+                  </p>
+                  {formData.linkedinUrl && (
+                    <button 
+                      onClick={() => window.open(formData.linkedinUrl, '_blank')}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    >
+                      <ArrowRight className="h-4 w-4 text-blue-500" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center">
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Telegram ID
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  placeholder="@yourusername"
+                  value={formData.telegramId || ''}
+                  onChange={(e) => setFormData({ ...formData, telegramId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {formData.telegramId || 'Not specified'}
+                  </p>
+                  {formData.telegramId && (
+                    <button 
+                      onClick={() => window.open(`https://t.me/${formData.telegramId?.replace('@', '')}`, '_blank')}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    >
+                      <ArrowRight className="h-4 w-4 text-blue-500" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center">
+                <Instagram className="h-4 w-4 mr-2" />
+                Instagram ID
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  placeholder="@yourusername"
+                  value={formData.instagramId || ''}
+                  onChange={(e) => setFormData({ ...formData, instagramId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {formData.instagramId || 'Not specified'}
+                  </p>
+                  {formData.instagramId && (
+                    <button 
+                      onClick={() => window.open(`https://instagram.com/${formData.instagramId?.replace('@', '')}`, '_blank')}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    >
+                      <ArrowRight className="h-4 w-4 text-blue-500" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Discord ID
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  placeholder="username#0000"
+                  value={formData.discordId || ''}
+                  onChange={(e) => setFormData({ ...formData, discordId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {formData.discordId || 'Not specified'}
+                  </p>
+                  {formData.discordId && (
+                    <button 
+                      onClick={() => window.open(`https://discord.com/users/${formData.discordId}`, '_blank')}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    >
+                      <ArrowRight className="h-4 w-4 text-blue-500" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Personal Information */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">

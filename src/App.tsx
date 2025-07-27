@@ -6,14 +6,26 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { ProfileSection } from './components/ProfileSection';
 import { JobListings } from './components/JobListings';
 import { Footer } from './components/Footer';
-import { Home, FileText, Briefcase, User, Menu, X, Sparkles, Star, TrendingUp, Users, Award, CheckCircle, ArrowRight, Play, Search } from 'lucide-react';
+import { FindFriends } from './components/FindFriends';
+import { Messages } from './components/Messages';
+import { Home, FileText, Briefcase, User, Menu, X, Sparkles, Star, TrendingUp, Users, Award, CheckCircle, ArrowRight, Play, Search, MessageCircle } from 'lucide-react';
 
-type ViewType = 'home' | 'resume' | 'jobs' | 'profile' | 'job-listings' | 'about' | 'contact' | 'privacy' | 'terms';
+type ViewType = 'home' | 'resume' | 'jobs' | 'profile' | 'job-listings' | 'about' | 'contact' | 'privacy' | 'terms' | 'find-friends' | 'messages';
 
 interface UserProfile {
+  id: string;
   name: string;
   email: string;
+  password?: string; // Add password field to UserProfile interface
+  careerHubId: string;
+  accountPrivacy: 'public' | 'private';
+  followers: any[]; // Simplified for now, can be more specific if needed
+  following: any[]; // Simplified for now, can be more specific if needed
+  messages: any[]; // Simplified for now, can be more specific if needed
+  username: string;
+  usernameStatus: 'checking' | 'available' | 'taken' | 'invalid' | '';
   photo?: string;
+  bannerImage?: string;
   gender?: string;
   dateOfBirth?: string;
   biography?: string;
@@ -21,7 +33,14 @@ interface UserProfile {
   experience?: string;
   education?: string;
   location?: string;
+  state?: string;
+  country?: string;
   phone?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
+  telegramId?: string;
+  instagramId?: string;
+  discordId?: string;
 }
 
 function App() {
@@ -30,13 +49,83 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
 
-  const handleLogin = (userData: { name: string; email: string }) => {
-    setUser({
-      name: userData.name,
-      email: userData.email
-    });
-    setShowAuthModal(false);
+  const handleRegister = async (userData: { name: string; email: string; password?: string }) => {
+    try {
+      const newUser = {
+        ...userData,
+        id: `USER${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+        careerHubId: `CH${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+        accountPrivacy: 'public',
+        followers: [],
+        following: [],
+        messages: [],
+        username: userData.name.replace(/\s/g, '').toLowerCase() + Math.floor(Math.random() * 1000),
+        usernameStatus: 'available',
+        photo: '',
+        bannerImage: '',
+        gender: '',
+        dateOfBirth: '',
+        biography: '',
+        skills: [],
+        experience: '',
+        education: '',
+        location: '',
+        state: '',
+        country: '',
+        phone: '',
+        githubUrl: '',
+        linkedinUrl: '',
+        telegramId: '',
+        instagramId: '',
+        discordId: ''
+      };
+
+      const response = await fetch('http://localhost:5000/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newUser),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const registeredUser = await response.json();
+      setUser(registeredUser);
+      setShowAuthModal(false);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      // Optionally, show an error message to the user
+    }
   };
+
+  const handleLogin = async (credentials: { email: string; password: string }) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Login error response:', errorData);
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const { user: loggedInUser } = await response.json();
+      setUser(loggedInUser);
+      setShowAuthModal(false);
+    } catch (error) {
+      console.error('Login failed:', error.message);
+      alert(`Login failed: ${error.message}`); // Show error message to the user
+    }
+  };
+
 
   const handleLogout = () => {
     setUser(null);
@@ -52,7 +141,8 @@ function App() {
     { id: 'job-listings' as ViewType, label: 'Find Jobs', icon: Search },
     { id: 'resume' as ViewType, label: 'Resume Builder', icon: FileText },
     { id: 'jobs' as ViewType, label: 'My Applications', icon: Briefcase },
-    { id: 'profile' as ViewType, label: 'Profile', icon: User },
+    { id: 'find-friends' as ViewType, label: 'Find Friends', icon: Users },
+    { id: 'messages' as ViewType, label: 'Messages', icon: MessageCircle },
   ];
 
   const features = [
@@ -123,6 +213,10 @@ function App() {
         return <JobListings user={user} />;
       case 'profile':
         return <ProfileSection user={user} onProfileUpdate={handleProfileUpdate} />;
+      case 'find-friends':
+        return <FindFriends currentUser={user} />;
+      case 'messages':
+        return <Messages currentUser={user} />;
       case 'about':
         return (
           <div className="max-w-4xl mx-auto py-12">
@@ -418,12 +512,21 @@ function App() {
               <ThemeToggle />
               {user ? (
                 <div className="flex items-center space-x-3">
-                  <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                  <div
+                    className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold cursor-pointer"
+                    onClick={() => setCurrentView('profile')}
+                  >
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:block">
                     Hello, {user.name}
                   </span>
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-medium transition-colors"
+                  >
+                    Logout
+                  </button>
                 </div>
               ) : (
                 <button
@@ -487,6 +590,7 @@ function App() {
         <AuthModal
           onClose={() => setShowAuthModal(false)}
           onLogin={handleLogin}
+          onRegister={handleRegister}
         />
       )}
     </div>
